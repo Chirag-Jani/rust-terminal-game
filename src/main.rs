@@ -7,7 +7,7 @@ use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::{poll, read, KeyCode},
     style::Print,
-    terminal::{disable_raw_mode, enable_raw_mode, size},
+    terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType},
     ExecutableCommand, QueueableCommand,
 };
 
@@ -20,6 +20,12 @@ fn draw_screen(screen: &mut Stdout, world: &World) -> std::io::Result<()> {
     screen.queue(MoveTo(world.player_column, world.player_row))?;
     screen.queue(Print("P"))?;
     screen.flush()?;
+    Ok(())
+}
+fn clear_at_line(screen: &mut Stdout, row: u16, col: u16) -> std::io::Result<()> {
+    screen.queue(MoveTo(col, row))?;
+    screen.queue(Print("Hi"))?;
+    screen.queue(Clear(ClearType::CurrentLine))?;
     Ok(())
 }
 
@@ -53,15 +59,19 @@ fn main() -> std::io::Result<()> {
                         break 'game;
                     }
                     KeyCode::Char('w') => {
+                        clear_at_line(&mut screen, world.player_row, world.player_column)?;
                         world.player_row -= 1;
                     }
                     KeyCode::Char('s') => {
+                        clear_at_line(&mut screen, world.player_row, world.player_column)?;
                         world.player_row += 1;
                     }
                     KeyCode::Char('a') => {
+                        clear_at_line(&mut screen, world.player_row, world.player_column)?;
                         world.player_column -= 1;
                     }
                     KeyCode::Char('d') => {
+                        clear_at_line(&mut screen, world.player_row, world.player_column)?;
                         world.player_column += 1;
                     }
                     _ => {}
