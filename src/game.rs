@@ -15,7 +15,7 @@ use rand::Rng;
 
 use crate::{
     painting::{draw_playing_area, paint_screen},
-    player::initialize_player,
+    player::{self, initialize_player},
     score_handler::{load_high_score, save_high_score},
     structs::{Food, Player, World, DIRECTION},
 };
@@ -181,7 +181,7 @@ fn eat(
 pub fn update_screen(
     screen: &mut Stdout,
     world: &mut World,
-    player: String,
+    mut player: String,
     rows: u16,
     columns: u16,
     to_where: DIRECTION,
@@ -192,6 +192,7 @@ pub fn update_screen(
         DIRECTION::UP => {
             if world.player_row > 1 {
                 world.player_row -= 1;
+                player = "^".to_string();
             } else {
                 if player_score > world.high_score {
                     world.high_score = player_score;
@@ -203,6 +204,7 @@ pub fn update_screen(
         DIRECTION::DOWN => {
             if world.player_row < rows - 2 {
                 world.player_row += 1;
+                player = "v".to_string();
             } else {
                 if player_score > world.high_score {
                     world.high_score = player_score;
@@ -213,6 +215,7 @@ pub fn update_screen(
         DIRECTION::RIGHT => {
             if world.player_column < columns - 2 {
                 world.player_column += 1;
+                player = ">".to_string();
             } else {
                 if player_score > world.high_score {
                     world.high_score = player_score;
@@ -223,6 +226,7 @@ pub fn update_screen(
         DIRECTION::LEFT => {
             if world.player_column > 2 {
                 world.player_column -= 1;
+                player = "<".to_string();
             } else {
                 if player_score > world.high_score {
                     world.high_score = player_score;
@@ -232,7 +236,7 @@ pub fn update_screen(
         }
     }
     screen.queue(MoveTo(world.player_column, world.player_row))?;
-    screen.queue(Print(player.with(Color::Red)))?;
+    screen.queue(Print(player.clone().with(Color::Red)))?;
 
     screen.flush()?;
     Ok(())
