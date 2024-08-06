@@ -1,13 +1,20 @@
 use crossterm::{
     cursor::MoveTo,
     style::Print,
-    terminal::{Clear, ClearType},
+    terminal::{size, Clear, ClearType},
     QueueableCommand,
 };
 use std::io::{stdout, Result, Stdout};
 
-pub fn paint_screen() -> std::io::Result<Stdout> {
-    let screen = stdout();
+use crate::structs::ScreenShit;
+
+pub fn paint_screen() -> std::io::Result<ScreenShit> {
+    let (columns, rows) = size().unwrap();
+    let screen = ScreenShit {
+        screen: stdout(),
+        columns,
+        rows,
+    };
     Ok(screen)
 }
 

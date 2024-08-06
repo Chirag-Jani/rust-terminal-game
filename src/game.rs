@@ -1,5 +1,6 @@
 use std::{
-    io::{stdout, Stdout, Write},
+    borrow::BorrowMut,
+    io::{Stdout, Write},
     process::exit,
     time::Duration,
 };
@@ -8,14 +9,14 @@ use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::{poll, read, KeyCode},
     style::{Color, Print, Stylize},
-    terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
     ExecutableCommand, QueueableCommand,
 };
 use rand::Rng;
 
 use crate::{
-    painting::{draw_playing_area, paint_screen},
-    player::{self, initialize_player},
+    painting::draw_playing_area,
+    player::initialize_player,
     score_handler::{load_high_score, save_high_score},
     structs::{Food, Player, World, DIRECTION},
 };
@@ -37,18 +38,12 @@ pub fn spawn_food(screen: &mut Stdout, row: u16, col: u16, food: &mut Food) -> s
     Ok(())
 }
 
-pub fn play() -> std::io::Result<()> {
-    // drawing initial screen
-    let mut screen = paint_screen().unwrap_or(stdout());
-
+pub fn play(mut screen: Stdout, rows: u16, columns: u16) -> std::io::Result<()> {
     // hids the cursor while playing
     screen.execute(Hide)?;
 
     // forgot it's use case
     enable_raw_mode()?;
-
-    // get the size of the terminal
-    let (columns, rows) = size().unwrap();
 
     // world shit
     let mut world: World = World {
@@ -69,28 +64,22 @@ pub fn play() -> std::io::Result<()> {
     let mut food = Food {
         f_col: 0,
         f_row: 0,
-        f_size: 0,
-        f_points: 0,
+        f_points: 2,
     };
 
     // drawing initial player area (border shit)
-    draw_playing_area(&mut screen, rows, columns).expect("Error drawing Player Area");
+    draw_playing_area(screen.borrow_mut(), rows, columns).expect("Error drawing Player Area");
 
-    spawn_food(&mut screen, rows, columns, &mut food).unwrap();
+    spawn_food(screen.borrow_mut(), rows, columns, &mut food).unwrap();
 
-    let mut player_score = 0;
+    let mut player_score: u64 = 0;
     'game: loop {
         if poll(Duration::from_millis(player_speed))? {
             let reading = read().unwrap();
             match reading {
                 crossterm::event::Event::Key(key_event) => match key_event.code {
                     KeyCode::Char('q') => {
-                        screen.queue(MoveTo(columns / 3, rows / 2))?;
-                        screen.queue(Print("\nThank you. Game Over.\n"))?;
-                        screen.queue(MoveTo(columns / 3, rows / 2 + 1))?;
-                        screen.queue(Print("\nYour Score: "))?;
-                        screen.queue(Print(player_score))?;
-                        screen.queue(MoveTo(0, 0))?;
+                        game_over(&mut screen, columns, rows, player_score)?;
                         break 'game;
                     }
                     KeyCode::Char('w') => {
@@ -104,9 +93,6 @@ pub fn play() -> std::io::Result<()> {
                     }
                     KeyCode::Char('d') => {
                         player_direction = DIRECTION::RIGHT;
-                    }
-                    KeyCode::Enter => {
-                        break 'game;
                     }
                     _ => {}
                 },
@@ -156,23 +142,23 @@ fn eat(
     row: u16,
     col: u16,
     food: &mut Food,
-    user_score: &mut u16,
+    user_score: &mut u64,
     scored: &mut u64,
     player_speed: &mut u64,
     level: &mut u64,
 ) -> std::io::Result<()> {
     if world.player_column == food.f_col && world.player_row == food.f_row {
         spawn_food(screen, row, col, food)?;
-        *user_score += 1;
+        *user_score += food.f_points;
         screen.flush()?;
 
-        if *scored == 3 && *player_speed > 10 {
+        if *scored >= 3 && *player_speed > 10 {
             screen.queue(MoveTo(col / 3, row / 2))?;
             *player_speed -= 10;
             *scored = 0;
             *level += 1;
         } else {
-            *scored += 1;
+            *scored += food.f_points;
         }
     }
     Ok(())
@@ -185,7 +171,7 @@ pub fn update_screen(
     rows: u16,
     columns: u16,
     to_where: DIRECTION,
-    player_score: u16,
+    player_score: u64,
 ) -> std::io::Result<()> {
     clear_at_line(screen, world.player_row, world.player_column)?;
     match to_where {
@@ -246,7 +232,7 @@ pub fn game_over(
     screen: &mut Stdout,
     columns: u16,
     rows: u16,
-    player_score: u16,
+    player_score: u64,
 ) -> std::io::Result<()> {
     screen.queue(Clear(ClearType::All))?;
     screen.queue(MoveTo(columns / 3, rows / 2))?;
